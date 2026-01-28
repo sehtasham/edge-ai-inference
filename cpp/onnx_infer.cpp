@@ -7,7 +7,7 @@
 #include <sstream>
 #include <onnxruntime_cxx_api.h>
 
-// Mean Squared Error for anomaly score
+// Compute anomaly score using mean squared error
 float anomaly_score(const std::vector<float>& input,
                     const std::vector<float>& recon) {
     float sum = 0.0f;
@@ -39,6 +39,9 @@ float get_memory_usage_mb() {
 }
 
 int main() {
+    // Threshold for anomaly detection
+    const float threshold = 0.1f; // tweak based on training results
+
     Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "edge-ai");
     Ort::SessionOptions session_options;
     session_options.SetIntraOpNumThreads(1);
@@ -50,6 +53,7 @@ int main() {
     const char* input_name  = input_name_alloc.get();
     const char* output_name = output_name_alloc.get();
 
+    // Example sensor input
     std::vector<float> input_data = {0.1f, -0.2f, 0.05f, 0.3f, -0.1f,
                                      0.2f, 0.0f, -0.05f, 0.15f, -0.2f};
     std::vector<int64_t> input_shape = {1, 10};
@@ -78,14 +82,22 @@ int main() {
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::milli> inference_time = end - start;
 
+    // Get reconstructed output
     float* output_data = output_tensors[0].GetTensorMutableData<float>();
     std::vector<float> reconstructed(output_data, output_data + input_data.size());
 
+    // Compute anomaly score
     float score = anomaly_score(input_data, reconstructed);
 
+    // Check against threshold
+    std::string status = (score > threshold) ? "ANOMALY DETECTED" : "Normal";
+
+    // Memory usage
     float mem_usage = get_memory_usage_mb();
 
+    // Output results
     std::cout << "C++ Anomaly Score: " << score << std::endl;
+    std::cout << "Status: " << status << std::endl;
     std::cout << "Inference Time (ms): " << inference_time.count() << std::endl;
     std::cout << "Memory Usage (MB): " << mem_usage << std::endl;
 
